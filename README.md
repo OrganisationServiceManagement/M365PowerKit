@@ -1,6 +1,7 @@
 # M365PowerKit
 
 This PowerShell module with included modules:
+
 - `M365PowerKit-ExchangeSearchExport`
   - `Export-NewExchangeSearch` allows you to search for and retrieve attachments from Microsoft 365 Exchange mailboxes using a search query based on sent date, sender and subject and attachment name (check psm1 file for more details).
   - `Export-ExistingExchangeSearch` allows you export a previously comp.
@@ -20,11 +21,20 @@ This PowerShell module with included modules:
 ```
 
 ## Usage
+
 ```powershell
    Use-M365PowerKit
    # Shows available commands and enable parameters to be entered
 ```
-### Nested Module: M365PowerKit-ExchangeSearchExport
+
+## Permissions
+
+- When a user connects to Microsoft Graph using Connect-MgGraph with delegated permissions (i.e.,permissions tied to their user account), their permissions are ultimately limited by a combination of:
+
+- Permissions Granted to the Application (App ID): The application (In this case, identified by App ID 14d82eec-204b-4c2f-b7e8-296a70dab67e) must have admin consent for specific permissions in Entra.
+- This defines the maximum scope of permissions that any user of this app can request.
+
+- Permissions of the User’s Role and Access: Even if the application has been granted permissions, the user’s access is restricted by their role and permissions within the tenant. For instance, a user with no admin privileges will not be able to perform admin-level actions, even if the app has consent for Directory.ReadWrite.All.
 
 ### Create a new search query and retrieve attachments
 

@@ -9,7 +9,7 @@
 @{
 
     # Script module or binary module file associated with this manifest.
-    RootModule        = 'M365PowerKit-SharedFunctions.psm1'
+    RootModule        = 'M365PowerKit-Shared.psm1'
 
     # Version number of this module.
     ModuleVersion     = '1.0.0'
@@ -30,7 +30,7 @@
     Copyright         = '(c) ZOAK PTY LTD. All rights reserved.'
 
     # Description of the functionality provided by this module
-    Description       = 'PowerShell Module for AWS CLI Org, Account and EC2 APIs.'
+    Description       = 'PowerShell Module for M365 - PowerShell.'
 
     # Minimum version of the PowerShell engine required by this module
     PowerShellVersion = '7.3'
@@ -70,7 +70,13 @@
 
 
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-    FunctionsToExport = @('Install-SharedDependencies', 'New-IPPSSession', 'New-EXOSession')
+    FunctionsToExport = @(
+        'Clear-M365Profile',
+        'Get-M365PKAccessToken',
+        'Install-M365Dependencies',
+        'New-IPPSSession',
+        'New-EXOSession'
+    )
 
     # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
     CmdletsToExport   = @()

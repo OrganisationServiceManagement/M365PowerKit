@@ -21,7 +21,40 @@
 
 #>
 $ErrorActionPreference = 'Stop'; $DebugPreference = 'Continue'
-
+$NESTED_MODULE_ARRAY = @(
+    'M365PowerKit-Shared',
+    'M365PowerKit-SharePoint',
+    'M365PowerKit-ExchangeSearchExport'
+)
+function Import-NestedModules {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string[]] $NESTED_MODULES
+    )
+    $NESTED_MODULES | ForEach-Object {
+        $MODULE_NAME = $_
+        Write-Debug "Importing nested module: $MODULE_NAME"
+        #Find-Module psd1 file in the subdirectory and import it
+        $PSD1_FILE = Get-ChildItem -Path ".\$MODULE_NAME" -Filter "$MODULE_NAME.psd1" -Recurse -ErrorAction SilentlyContinue
+        if (-not $PSD1_FILE) {
+            Write-Error "Module $MODULE_NAME not found. Exiting."
+            throw "Nested module $MODULE_NAME not found. Exiting."
+        }
+        elseif ($PSD1_FILE.Count -gt 1) {
+            Write-Error "Multiple module files found for $MODULE_NAME. Exiting."
+            throw "Multiple module files found for $MODULE_NAME. Exiting."
+        }
+        Import-Module $PSD1_FILE.FullName -Force
+        Write-Debug "Importing nested module: $PSD1_FILE,  -- $($PSD1_FILE.BaseName)"
+        #Write-Debug "Importing nested module: .\$($_.BaseName)\$($_.Name)"
+        # Validate the module is imported
+        if (-not (Get-Module -Name $MODULE_NAME)) {
+            Write-Error "Module $MODULE_NAME not found. Exiting."
+            throw "Nested module $MODULE_NAME not found. Exiting."
+        }
+    }
+    return $NESTED_MODULES
+}
 function Get-ClickOnceApplication {
     $Default_Path = "$($env:LOCALAPPDATA)\Apps\2.0\"
     $Default_Filename = 'microsoft.office.client.discovery.unifiedexporttool.exe'
@@ -50,112 +83,62 @@ function Get-ClickOnceApplication {
     $ClickOnceApp
 }
 
-# Function: Install-Dependencies
-# Description: This function installs the required modules and dependencies for the script to run.
-function Install-Dependencies {
-    function Get-PSModules {
-        $REQUIRED_MODULES = @('ExchangeOnlineManagement')
-        $REQUIRED_MODULES | ForEach-Object {
-            if (-not (Get-Module -ListAvailable -Name $_ -ErrorAction SilentlyContinue)) {
-                try {
-                    Install-Module -Name $_
-                    Write-Debug "$_ module installed successfully"
-                }
-                catch {
-                    Write-Error "Failed to install $_ module"
-                }
-            }
-            else {
-                Write-Debug "$_ module already installed"
-            }
-            try {
-                Import-Module -Name $_
-                Write-Debug "Loading the $_ module..."
-                Write-Debug "$_ module loaded successfully"
-            }
-            catch {
-                Write-Error "Failed to import $_ module"
-            }
-        }
-        Write-Debug 'All required modules imported successfully'
-    }
-    Get-PSModules
-}
-
-function Import-NestedModules {
-    # Location of the M365PowerKit.psm1 file
-    # Find *.psd1 files in $PSScriptRoot subdirectories and import them
-    Write-Debug "Importing nested modules from: $PSScriptRoot"
-    Get-ChildItem -Path $PSScriptRoot -Filter '*.psd1' -Recurse -Exclude 'M365PowerKit.psd1'
-    $NESTED_MODULE_ARRAY = Get-ChildItem -Path $PSScriptRoot -Filter '*.psd1' -Recurse -Exclude 'M365PowerKit.psd1' | ForEach-Object {
-        # If the module is not already imported, import it
-        if (-not (Get-Module -Name $_.BaseName)) {
-            Write-Debug "Importing module: $($_.FullName)"
-            Import-Module $_.FullName -Force
-        }
-        else {
-            Write-Debug "Module already imported: $($_.FullName)"
-        }
-        # Validate that the module was imported
-        if (-not (Get-Module -Name $_.BaseName)) {
-            Write-Error "Failed to import module: $($_.FullName)"
-        }
-        Write-Debug "Imported module: $($_.FullName)"
-        return $_.BaseName
-    }
-    Write-Debug "Nested modules imported: $NESTED_MODULE_ARRAY"
-    $NESTED_MODULE_ARRAY
-}
-
 # function to run provided functions with provided parameters (as hash table)
 function Invoke-M365PowerKitFunction {
     param (
         [Parameter(Mandatory = $true)]
         [string]$FunctionName,
         [Parameter(Mandatory = $false)]
-        [hashtable]$Parameters,
-        [Parameter(Mandatory = $false)]
-        [switch]$SkipNestedModuleImport = $false
-    )
-    if (-not $SkipNestedModuleImport) { Import-NestedModules }
-        
+        [hashtable]$ProvidedParameters
+    )    
+    $TEMP_DIR = "$env:OSM_HOME\M365PowerKit\.temp"
+    if (-not (Test-Path $TEMP_DIR)) {
+        New-Item -ItemType Directory -Path $TEMP_DIR -Force | Out-Null
+    }
+    $TIMESTAMP = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $LOG_FILE = "$TEMP_DIR\$FunctionName-$TIMESTAMP.log"
+    # Start transcript logging
+    Start-Transcript -Path $LOG_FILE -Append
     try {
         $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         # Invoke expression to run the function, splatting the parameters
         $stopwatch.Start()
-        if ($Parameters) {
-            Write-Debug "Running function: $FunctionName with parameters: $($Parameters | Out-String)"
-            & $FunctionName @Parameters
+        if ($ProvidedParameters) {
+            $singleLineDefinition = $ProvidedParameters.Keys | ForEach-Object { "-   ->    $_ = $($ProvidedParameters.($_))" }
+            Write-Debug "Running function: $FunctionName with parameters: $singleLineDefinition"
+            & $FunctionName @ProvidedParameters
         }
         else {
-            Invoke-Expression $FunctionName
+            Invoke-Expression "$FunctionName"
         }
-        $stopwatch.Stop()
-        Write-Debug "Function: $FunctionName completed in $($stopwatch.Elapsed.TotalSeconds) seconds"
     }
     catch {
         Write-Error "Failed to run function: $FunctionName"
     }
+    finally {
+        $stopwatch.Stop()
+        Write-Debug "Function: $FunctionName completed in $($stopwatch.Elapsed.TotalSeconds) seconds"
+        # Stop transcript logging
+        Stop-Transcript
+        Write-Host "Log: $LOG_FILE"
+         
+    }
 }
 
 function Show-M365PowerKitFunctions {
+    
     # List nested modules and their exported functions to the console in a readable format, grouped by module
     $colors = @('Green', 'Cyan', 'Red', 'Magenta', 'Yellow')
-    $nestedModules = Import-NestedModules
-
     $colorIndex = 0
     $functionReferences = @{}
-    $nestedModules | ForEach-Object {
-        Write-Debug "Processing module: $_"
-        $MODULE_NAME = Get-Item -Path $_
-        Write-Debug "Processing module Path: $MODULE_NAME"
-        $MODULE = Get-Module -Name $($MODULE_NAME.BaseName)
+    $NESTED_MODULE_ARRAY | ForEach-Object {
+        $MODULE = Get-Module -Name $_
         # Select a color from the list
         $color = $colors[$colorIndex % $colors.Count]
         $spaces = ' ' * (52 - $MODULE.Name.Length)
         Write-Host '' -BackgroundColor Black
         Write-Host "Module: $($MODULE.Name)" -BackgroundColor $color -ForegroundColor White -NoNewline
-        Write-Host $spaces  -BackgroundColor $color -NoNewline
+        Write-Host $spaces -BackgroundColor $color -NoNewline
         Write-Host ' ' -BackgroundColor Black
         $spaces = ' ' * 41
         Write-Host " Exported Commands:$spaces" -BackgroundColor "Dark$color" -ForegroundColor White -NoNewline
@@ -182,7 +165,7 @@ function Show-M365PowerKitFunctions {
         Write-Host ' ' -BackgroundColor Black
     }
     Write-Host 'Note: You can run functions without this interface by calling them directly.' 
-    Write-Host "Example: Invoke-M365PowerKitFunction -FunctionName 'FunctionName' -Parameters @{ 'ParameterName' = 'ParameterValue' }" 
+    Write-Host "Example: Invoke-M365PowerKitFunction -FunctionName 'FunctionName' -ProvidedParameters @{ 'ParameterName' = 'ParameterValue' }" 
     # Write separator for readability
     Write-Host "`n" -BackgroundColor Black
     Write-Host '++++++++++++++++++++++++++++++++++++++++++++++++++++++++++' -BackgroundColor Black -ForegroundColor DarkGray
@@ -196,16 +179,16 @@ function Show-M365PowerKitFunctions {
     # if the user enters a function name and parameters, run it with the provided parameters as a hash table
     if ($selectedFunction -match '(\w+)\s*\[(.*)\]') {
         $functionName = $matches[1]
-        $parameters = $matches[2] -split '\s*,\s*' | ForEach-Object {
+        $ProvidedParameters = $matches[2] -split '\s*,\s*' | ForEach-Object {
             $key, $value = $_ -split '\s*=\s*'
             @{ $key = $value }
         }
-        Write-Debug "Invoking: $functionName with parameters: $parameters"
-        Invoke-M365PowerKitFunction -FunctionName $functionName -Parameters $parameters -SkipNestedModuleImport
+        Write-Debug "Invoking: $functionName with parameters: $ProvidedParameters"
+        Invoke-M365PowerKitFunction -FunctionName $functionName -ProvidedParameters $ProvidedParameters
     }
     elseif ($selectedFunction -match '(\w+)') {
         Write-Debug "Selected function: $selectedFunction withou parameters"
-        Invoke-M365PowerKitFunction -FunctionName $selectedFunction -SkipNestedModuleImport
+        Invoke-M365PowerKitFunction -FunctionName $selectedFunction
     }
     elseif ($selectedFunction -eq '') {
         return $null
@@ -228,38 +211,66 @@ function Show-M365PowerKitFunctions {
 function M365PowerKit {
     param (
         [Parameter(Mandatory = $false)]
-        [switch]$SkipDependencies = $false,
-        [Parameter(Mandatory = $false)]
         [string]$UPN,
         [Parameter(Mandatory = $false)]
-        [string]$FunctionName,
+        [string]$InputFunctionName,
         [Parameter(Mandatory = $false)]
-        [hashtable]$Parameters
+        [hashtable]$ProvidedParameters,
+        [Parameter(Mandatory = $false)]
+        [switch]$ClearProfile = $false
     )
-    if (!$SkipDependencies) {
-        Install-Dependencies
+    # Import Shared Module
+    $MODULE_LIST = Import-NestedModules -NESTED_MODULES $NESTED_MODULE_ARRAY
+    Write-Debug "$($MyInvocation.MyCommand.Name) - Imported Nested Modules: $MODULE_LIST"
+
+    if (! $env:M365PowerKit_DependenciesInstalled) {
+        Install-M365Dependencies -DependencySet 'All'
     }
-    Import-NestedModules
-    if (!$env:M365PowerKitUPN -and !$UPN) {
-        $env:M365PowerKitUPN = Read-Host 'Enter the User Principal Name (UPN) for the Exchange Online session'
+    if ($ClearProfile) {
+        Write-Debug 'Clearing M365PowerKit Profile and Connections...'
+        Clear-M365PowerKitProfile
+        Write-Debug 'M365PowerKit Profile and Connections cleared - OK'
     }
+
+    # if (!$env:M365PowerKitUPN -and !$UPN -and !$ClearProfile) {
+    #     $env:M365PowerKitUPN = Read-Host 'Enter the User Principal Name (UPN) for the Exchange Online session'
+    # }
+    # else {
+    #     Write-Debug 'Cleared M365PowerKit Profile and Connections'
+    # }
     try {
-        New-IPPSSession
-        New-EXOSession
-        # If function is called with a function name, run that function with the provided parameters
-        if ($FunctionName) {
+        # New-IPPSSession
+        # New-EXOSession
+        # If function is called with a function name, run that function with the provided ProvidedParameters
+        if ($InputFunctionName) {
             try {
-                Invoke-M365PowerKitFunction -FunctionName $FunctionName -Parameters $Parameters
+                if ($ProvidedParameters) {
+                    Write-Debug "$($MyInvocation.MyCommand.Name) - Running function: $InputFunctionName with ProvidedParameters provided"
+                    Invoke-M365PowerKitFunction -FunctionName $InputFunctionName -ProvidedParameters $ProvidedParameters
+                }
+                else {
+                    Write-Debug "$($MyInvocation.MyCommand.Name) - Running function: $InputFunctionName without parameters"
+                    Invoke-M365PowerKitFunction -FunctionName $InputFunctionName
+                }
+                Invoke-M365PowerKitFunction -FunctionName $InputFunctionName -ProvidedParameters $ProvidedParameters
             }
             catch {
-                Write-Debug "FAILED: $_"
-                Write-Error "M365PowerKit: Failed to run function: $FunctionName with parameters: $Parameters"
+                Write-Debug "$($MyInvocation.MyCommand.Name) - FAILED: $_"
+                Write-Error "$($MyInvocation.MyCommand.Name) - Failed to run function: $InputFunctionName with parameters: $ProvidedParameters"
             }
+        }
+        else {
+            Write-Debug "$($MyInvocation.MyCommand.Name) - No function name provided, showing UI..."
+            Show-M365PowerKitFunctions
         }
     }
     catch {
-        Write-Debug "Failed to create IPS session with error: $_"
-        Write-Error 'M365PowerKit failed to create IPS session'
+        Write-Debug "$($MyInvocation.MyCommand.Name) - Error: $_"
+        Write-Error "M365PowerKit threw an error: $_"
     }
-    Show-M365PowerKitFunctions
+    finally {
+        Write-Debug 'M365PowerKit completed successfully'
+        #Write-Host 'Clearing profile...'
+        #Clear-M365PowerKitProfile
+    }
 }
