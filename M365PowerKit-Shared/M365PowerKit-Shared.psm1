@@ -141,6 +141,7 @@ function New-IPPSSession {
         }
         Write-Debug 'IPS session created successfully'
     }
+    return $env:M365PowerKitUPN
 }
 
 # New EXO Session

@@ -75,6 +75,7 @@ GitHub: https://github.com/markz0r/M365PowerKit-ExchangeSearchExport
 $ErrorActionPreference = 'Stop'; $DebugPreference = 'Continue'
 # Start transcript logging
 $TranscriptPath = "$PSScriptRoot\Trans\$(Get-Date -Format 'yyyyMMdd_hhmmss')-Transcript.log"
+Import-Module "$PSScriptRoot\..\M365PowerKit-Shared\M365PowerKit-Shared.psd1" -Force
 #Import-Module '.\M365PowerKit-SharedFunctions\M365PowerKit-SharedFunctions.psd1' -Force
 
 
@@ -203,7 +204,8 @@ function Export-NewExchangeSearch {
         # Add AttachmentExtension to the export parameters
         $EXPORT_PARAMS.Add('AttachmentExtension', $AttachmentExtension)
         if (!($SkipConnIPS -or $SkipDownload)) {
-            New-IPPSSession -UPN $UPN
+            $sessionUPN = New-IPPSSession
+            Write-Debug "New-IPPSSession UPN: $sessionUPN"
         }
         $SearchName = "$(Get-Date -Format 'yyyyMMdd')-$MailboxName-$Subject-$Sender_Address-OSMSearch"
         $SEARCH_PARAMS.Add('SearchName', $SearchName)
@@ -286,7 +288,8 @@ function Export-ExistingExchangeSearch {
         Install-Dependencies
     }
     if (!($SkipConnIPS -or $SkipDownload)) {
-        New-IPPSSession -UPN $UPN
+        $sessionUPN = New-IPPSSession
+        Write-Debug "New-IPPSSession UPN: $sessionUPN"
     }
     # Export the compliance search results to a PST file
     # Get the Outlook COM object
@@ -367,7 +370,7 @@ function New-KQLQuery {
         $KQL_QUERY_STRING = '((received>={0})' -f $FDate
     }
     elseif (!$DaysBack) {
-        Write-Error  'Either FDate or DaysBack is required...'
+        Write-Error 'Either FDate or DaysBack is required...'
     }
     elseif ($DaysBack -and $DaysBack -notmatch '^\d+$') {
         Write-Error "DaysBack: $DaysBack - does not match the format d+."
@@ -507,15 +510,10 @@ function Get-ClickOnceApplication {
 function Install-Dependencies {
     # Function: Check PowerShell version and edition
     # Description: This function checks the PowerShell version and edition and returns the version and edition.
-    Write-Debug 'Installing Shared Dependencies...'
-    Install-SharedDependencies
-    Write-Debug 'Shared Dependencies installed successfully...'
     Write-Debug 'Verifying/Installing Unified Export Tool...'
     Get-ClickOnceApplication
     Write-Debug 'ClickOnceApplication present...'
 }  
-
-
 
 # Function: Wait-CustomComplianceSearch
 # Description: This function waits for the compliance search to complete.

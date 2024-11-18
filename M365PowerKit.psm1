@@ -232,10 +232,14 @@ function M365PowerKit {
         Write-Debug 'M365PowerKit Profile and Connections cleared - OK'
     }
 
-    # if (!$env:M365PowerKitUPN -and !$UPN -and !$ClearProfile) {
-    #     $env:M365PowerKitUPN = Read-Host 'Enter the User Principal Name (UPN) for the Exchange Online session'
-    # }
-    # else {
+    if (! $UPN) {
+        if (!$env:M365PowerKitUPN) {
+            $UPN = Read-Host 'Enter the User Principal Name (UPN) for the Exchange Online session'
+        }
+    }
+    $env:M365PowerKitUPN = $UPN
+    Write-Debug "M365PowerKit UPN set to: $UPN"
+        
     #     Write-Debug 'Cleared M365PowerKit Profile and Connections'
     # }
     try {
