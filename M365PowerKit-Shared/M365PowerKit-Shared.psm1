@@ -3,9 +3,9 @@ $ErrorActionPreference = 'Stop'; $DebugPreference = 'Continue'
 # Function: Install-SharedDependencies
 # Description: This function installs the shared dependencies for the M365PowerKit module.
 $M365POWERKIT_DEPENDENCIES = @(
-    'Microsoft.Graph.Authentication',
-    'Microsoft.Graph.Sites',
-    'Microsoft.Graph.Files',
+    # 'Microsoft.Graph.Authentication',
+    # 'Microsoft.Graph.Sites',
+    # 'Microsoft.Graph.Files'
     #  'WINGET_Microsoft.NuGet',
     #  'MSPACKAGE_Microsoft.Identity.Client',
     'ExchangeOnlineManagement'
@@ -40,10 +40,10 @@ function Install-M365Dependencies {
             }
         }
         # if the module is prefixed with MSPACKAGE_, use Install-Package $_ -Scope CurrentUser
-        if ($_ -like 'MSPACKAGE_*') {
+        elseif ($_ -like 'MSPACKAGE_*') {
             $packageName = $_ -replace 'MSPACKAGE_', ''
             Write-Debug "$($MyInvocation.MyCommand.Name) -- Checking if $packageName package is installed..."
-            if (-not (Get-Package -Name $packageName -Scope CurrentUser)) {
+            if (-not (Get-Package -Name $packageName)) {
                 try {
                     Write-Debug "Installing $packageName package... these can take a while to install, several minutes."
                     Install-Package -Name $packageName -Scope CurrentUser -Force -ErrorAction Continue
@@ -59,6 +59,7 @@ function Install-M365Dependencies {
         }
         else {
             Write-Debug "$($MyInvocation.MyCommand.Name) -- Checking if $_ module is installed..."
+            Import-Module -Name $_ -Force
             
             if (-not (Get-Module -Name $_)) {
                 try {
@@ -76,7 +77,9 @@ function Install-M365Dependencies {
             else {
                 Write-Debug "$_ module already imported"
             }
-            Import-Module -Name $_ -ErrorAction Continue | Out-Null
+            if (-not (Get-Module -Name $_)) {
+                Import-Module -Name $_ -ErrorAction Continue | Out-Null
+            }
         }
     }
     $env:M365PowerKit_DependenciesInstalled = $true
@@ -154,7 +157,7 @@ function New-EXOSession {
         try {
             if (-not $env:M365PowerKit_EXOSession) {
                 Write-Debug 'Starting New-EXOSession...'
-                $env:M365PowerKit_EXOSession = Connect-ExchangeOnline -UserPrincipalName $env:M365PowerKitUPN
+                $env:M365PowerKit_EXOSession = Connect-ExchangeOnline -UserPrincipalName $env:M365PowerKitUPN            
             }
             else {
                 Write-Debug 'Reusing existing EXO session.'

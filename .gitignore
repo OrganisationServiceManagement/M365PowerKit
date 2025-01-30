@@ -10,6 +10,10 @@
 !.gitignore
 !.gitattributes
 !LICENSE.md
-
+## Exllude all 'output' directories and their contents
+output/
+*.dll
+*.xml
+.temp\*
 # Seems broken... ended up manually overriding the .gitignore file with:
 # Get-ChildItem -Recurse -Include *.psd1, *.psm1 | ForEach-Object { git add $_ -f }
