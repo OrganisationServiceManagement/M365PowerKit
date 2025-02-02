@@ -24,7 +24,8 @@ $ErrorActionPreference = 'Stop'; $DebugPreference = 'Continue'
 $NESTED_MODULE_ARRAY = @(
     'M365PowerKit-Shared',
     'M365PowerKit-SharePoint',
-    'M365PowerKit-ExchangeSearchExport'
+    'M365PowerKit-ExchangeSearchExport',
+    'M365PowerKit-ExchangeReporter'
 )
 function Import-NestedModules {
     param (
@@ -235,6 +236,9 @@ function M365PowerKit {
     if (! $UPN) {
         if (!$env:M365PowerKitUPN) {
             $UPN = Read-Host 'Enter the User Principal Name (UPN) for the Exchange Online session'
+        }
+        else {
+            $UPN = $env:M365PowerKitUPN
         }
     }
     $env:M365PowerKitUPN = $UPN

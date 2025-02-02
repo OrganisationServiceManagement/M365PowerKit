@@ -10,6 +10,13 @@ $ErrorActionPreference = 'Stop'; $DebugPreference = 'Continue'
 function Get-AllSMTPAddresses {
     Write-Debug 'Running Get-AllSMTPAddresses...'
 
+    # If the module M365PowerKit-Shared is not loaded, load it
+    if (-not (Get-Module -Name 'M365PowerKit-Shared')) {
+        Write-Debug 'Loading M365PowerKit-Shared...'
+        Import-Module "$($env:OSM_HOME)\M365PowerKit\M365PowerKit-Shared\M365PowerKit-Shared.psd1" -Force
+    }
+    New-EXOSession
+
     # Check $env:
     $RUN_TIMESTAMP = Get-Date -Format 'yyyyMMdd_HHmm'
     $CLEAN_UPN = $($env:M365PowerKitUPN -replace '@', '_').ToLower().Trim()

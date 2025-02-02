@@ -149,7 +149,7 @@ function New-IPPSSession {
 
 # New EXO Session
 function New-EXOSession {
-    # Check if there is an existing session
+    Write-Debug "$($MyInvocation.MyCommand.Name) -- Checking if EXO session is established..."
     if (!$env:M365PowerKitUPN) {
         Write-Error 'No UPN found in the environment variable M365PowerKitUPN'
     }
