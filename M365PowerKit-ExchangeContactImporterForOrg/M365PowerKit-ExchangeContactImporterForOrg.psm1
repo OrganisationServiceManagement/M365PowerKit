@@ -20,7 +20,6 @@ function Import-EACContactsFromCSV {
     if (-not $UPN) {
         $UPN = Read-Host 'Enter the User Principal Name (UPN) of the user running the script (e.g.: admin@onmicrosoft.com) [required]'
     }
-    Install-SharedDependencies
     New-IPPSSession -UPN $UPN
 
     # Import contacts from CSV file

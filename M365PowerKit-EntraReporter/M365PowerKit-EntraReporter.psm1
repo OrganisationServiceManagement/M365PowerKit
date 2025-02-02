@@ -20,5 +20,5 @@ https://learn.microsoft.com/en-us/graph/api/resources/users?view=graph-rest-1.0
 $ErrorActionPreference = 'Stop'; $DebugPreference = 'Continue'
 # Function to Get all SMTP addresses configured for a tenant in Exchange Online
 function Get-EntraUserExport {
-    return $null
+    
 }
